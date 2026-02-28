@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Outfit, DM_Sans } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Navbar } from "@/components/Navbar";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -31,6 +32,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${outfit.variable} ${dmSans.variable} antialiased`}>
         <TooltipProvider delayDuration={300}>
+          <Navbar />
           {children}
         </TooltipProvider>
         <Toaster richColors position="top-center" />

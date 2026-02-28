@@ -6,9 +6,6 @@ export interface Product {
   cost_price: number;
   min_margin: number;
   target_margin: number;
-  reservation_price: number;
-  target_price: number;
-  zopa_range: [number, number];
   metadata: Record<string, unknown>;
 }
 
