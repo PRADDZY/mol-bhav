@@ -1,25 +1,37 @@
 """Mol-Bhav AI Negotiation Engine — FastAPI application."""
 
+import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.config import settings
 from app.db.mongo import connect_mongo, close_mongo
 from app.db.redis import connect_redis, close_redis
 from app.api import negotiate, products, sessions, beckn
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    if not settings.openai_api_key:
+        logger.warning("OPENAI_API_KEY not set — dialogue generation will use fallback responses")
     await connect_mongo()
     await connect_redis()
+    logger.info("Mol-Bhav engine started successfully")
     yield
     # Shutdown
     await close_redis()
     await close_mongo()
+    logger.info("Mol-Bhav engine shut down")
 
 
 app = FastAPI(
@@ -28,6 +40,16 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
+
 
 # CORS
 app.add_middleware(

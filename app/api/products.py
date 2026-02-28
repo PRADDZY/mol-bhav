@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
+from pymongo.errors import DuplicateKeyError
 
 from app.db.mongo import products_collection
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/products", tags=["products"])
 
@@ -21,12 +26,15 @@ class CreateProductRequest(BaseModel):
     metadata: dict = {}
 
 
-@router.post("")
+@router.post("", status_code=201)
 async def create_product(body: CreateProductRequest):
     """Add a product to the catalog."""
     doc = body.model_dump()
     doc["_id"] = doc.pop("id")
-    await products_collection().insert_one(doc)
+    try:
+        await products_collection().insert_one(doc)
+    except DuplicateKeyError:
+        raise HTTPException(status_code=409, detail=f"Product {body.id} already exists")
     return {"status": "created", "id": body.id}
 
 
