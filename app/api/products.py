@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -14,6 +15,8 @@ from app.db.mongo import products_collection
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/products", tags=["products"])
+
+_PRODUCT_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,100}$")
 
 
 class CreateProductRequest(BaseModel):
@@ -33,6 +36,8 @@ async def create_product(
     _admin: str = Depends(verify_admin_key),
 ):
     """Add a product to the catalog."""
+    if not _PRODUCT_ID_RE.match(body.id):
+        raise HTTPException(status_code=400, detail="Invalid product ID format")
     doc = body.model_dump()
     doc["_id"] = doc.pop("id")
     try:
@@ -45,6 +50,8 @@ async def create_product(
 @router.get("/{product_id}")
 async def get_product(product_id: str):
     """Fetch a single product."""
+    if not _PRODUCT_ID_RE.match(product_id):
+        raise HTTPException(status_code=400, detail="Invalid product ID format")
     doc = await products_collection().find_one({"_id": product_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Product not found")

@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 
+import openai
 from openai import AsyncOpenAI
 
 from app.config import settings
@@ -20,6 +22,12 @@ from app.models.session import NegotiationSession
 logger = logging.getLogger(__name__)
 
 _PROMPT_DIR = Path(__file__).parent / "prompts"
+
+_MAX_BUYER_MSG_LEN = 500
+_INJECTION_PATTERNS = re.compile(
+    r"(ignore\s+(all\s+)?previous|system\s*:|you\s+are\s+now|forget\s+(your|all)|disregard\s+(above|instructions))",
+    re.IGNORECASE,
+)
 
 
 def _load_prompt(name: str) -> str:
@@ -36,10 +44,24 @@ class DialogueResponse:
 
 class DialogueGenerator:
     def __init__(self):
-        self._client = AsyncOpenAI(api_key=settings.openai_api_key)
+        self._client = AsyncOpenAI(
+            api_key=settings.openai_api_key,
+            timeout=30.0,
+        )
         self._system_prompt = _load_prompt("system.txt")
         self._walk_away_prompt = _load_prompt("walk_away.txt")
         self._bundle_prompt = _load_prompt("bundle.txt")
+
+    @staticmethod
+    def _sanitize_buyer_message(msg: str) -> str:
+        """Truncate, strip control chars, redact prompt injection attempts."""
+        msg = msg[:_MAX_BUYER_MSG_LEN]
+        # Remove control characters except newline
+        msg = re.sub(r"[\x00-\x09\x0b-\x1f\x7f]", "", msg)
+        if _INJECTION_PATTERNS.search(msg):
+            logger.warning("Prompt injection attempt detected in buyer message")
+            msg = "[message redacted]"
+        return msg
 
     async def generate_response(
         self,
@@ -49,6 +71,7 @@ class DialogueGenerator:
     ) -> DialogueResponse:
         """Generate a Hinglish shopkeeper response for the current turn."""
         system = self._system_prompt
+        buyer_message = self._sanitize_buyer_message(buyer_message)
 
         # Build context for the LLM
         user_context = self._build_user_prompt(session, engine_result, buyer_message)
@@ -89,7 +112,7 @@ class DialogueGenerator:
             )
             raw = resp.choices[0].message.content or "{}"
             data = json.loads(raw)
-        except Exception:
+        except (openai.APIError, openai.APITimeoutError, json.JSONDecodeError):
             logger.exception("LLM call failed, using fallback response")
             data = {
                 "message": f"Bhaiya, best price for you — ₹{engine_result.counter_price}. Isse kam nahi hoga.",

@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     min_response_delay_ms: int = 2000
     cors_allowed_origins: list[str] = ["http://localhost:3000"]
     api_admin_key: str = ""
+    max_requests_per_minute_per_ip: int = 30
+    max_request_body_bytes: int = 65_536
 
     # Environment
     env: str = "development"  # development | staging | production
