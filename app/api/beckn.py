@@ -6,19 +6,21 @@ internal negotiation engine.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.models.beckn import BecknContext, BecknSelectRequest
 from app.protocol.beckn_stub import build_on_select_response
+from app.api.deps import get_negotiation_service
 from app.services.negotiation_service import NegotiationService
 
 router = APIRouter(prefix="/beckn", tags=["beckn"])
 
-_service = NegotiationService()
-
 
 @router.post("/select")
-async def beckn_select(body: BecknSelectRequest):
+async def beckn_select(
+    body: BecknSelectRequest,
+    service: NegotiationService = Depends(get_negotiation_service),
+):
     """Handle Beckn /select — buyer indicates interest with optional price signal.
 
     Maps to internal negotiation and returns on_select with quote + TTL.
@@ -41,7 +43,7 @@ async def beckn_select(body: BecknSelectRequest):
         # Continuation — process as offer
         buyer_msg = item.get("tags", {}).get("message", "")
         try:
-            result = await _service.negotiate(
+            result = await service.negotiate(
                 session_id=session_id,
                 buyer_message=buyer_msg,
                 buyer_price=buyer_price,
@@ -51,7 +53,7 @@ async def beckn_select(body: BecknSelectRequest):
     else:
         # New negotiation — start session
         try:
-            result = await _service.start(product_id=product_id)
+            result = await service.start(product_id=product_id)
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
 

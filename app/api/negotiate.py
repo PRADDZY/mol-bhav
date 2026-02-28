@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.db.redis import check_cooldown, set_cooldown
 from app.config import settings
+from app.api.deps import get_negotiation_service
 from app.services.negotiation_service import NegotiationService
 
 router = APIRouter(prefix="/api/v1/negotiate", tags=["negotiate"])
-
-_service = NegotiationService()
 
 
 class StartRequest(BaseModel):
@@ -25,11 +24,15 @@ class OfferRequest(BaseModel):
 
 
 @router.post("/start")
-async def start_negotiation(body: StartRequest, request: Request):
+async def start_negotiation(
+    body: StartRequest,
+    request: Request,
+    service: NegotiationService = Depends(get_negotiation_service),
+):
     """Begin a new negotiation session for a product."""
     try:
         buyer_ip = request.client.host if request.client else ""
-        result = await _service.start(
+        result = await service.start(
             product_id=body.product_id,
             buyer_name=body.buyer_name,
             buyer_ip=buyer_ip,
@@ -40,7 +43,11 @@ async def start_negotiation(body: StartRequest, request: Request):
 
 
 @router.post("/{session_id}/offer")
-async def make_offer(session_id: str, body: OfferRequest):
+async def make_offer(
+    session_id: str,
+    body: OfferRequest,
+    service: NegotiationService = Depends(get_negotiation_service),
+):
     """Submit a buyer offer in an active negotiation."""
     # Cooldown check (bot defense — 2s between turns)
     if await check_cooldown(session_id):
@@ -50,7 +57,7 @@ async def make_offer(session_id: str, body: OfferRequest):
         )
 
     try:
-        result = await _service.negotiate(
+        result = await service.negotiate(
             session_id=session_id,
             buyer_message=body.message,
             buyer_price=body.price,
@@ -63,9 +70,12 @@ async def make_offer(session_id: str, body: OfferRequest):
 
 
 @router.get("/{session_id}/status")
-async def get_status(session_id: str):
+async def get_status(
+    session_id: str,
+    service: NegotiationService = Depends(get_negotiation_service),
+):
     """Get current negotiation status."""
-    session = await _service._load_session(session_id)
+    session = await service.load_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found or expired")
     return {

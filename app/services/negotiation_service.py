@@ -101,7 +101,7 @@ class NegotiationService:
     ) -> NegotiationResponse:
         """Process one round of negotiation."""
         # Load session
-        session = await self._load_session(session_id)
+        session = await self.load_session(session_id)
         if session is None:
             raise ValueError(f"Session {session_id} not found or expired")
 
@@ -153,6 +153,10 @@ class NegotiationService:
         # --- Persist ---
         await self._persist_session(session)
 
+        # Cleanup bot detector if session reached terminal state
+        if session.is_terminal():
+            self._bot_detectors.pop(session_id, None)
+
         # --- Log negotiation turn ---
         await mongo.negotiation_logs_collection().insert_one({
             "session_id": session_id,
@@ -172,6 +176,11 @@ class NegotiationService:
 
     def _get_bot_detector(self, session_id: str) -> BotDetector:
         if session_id not in self._bot_detectors:
+            # Prune stale detectors to prevent unbounded growth
+            if len(self._bot_detectors) > 1000:
+                oldest_keys = list(self._bot_detectors.keys())[:500]
+                for k in oldest_keys:
+                    del self._bot_detectors[k]
             self._bot_detectors[session_id] = BotDetector()
         return self._bot_detectors[session_id]
 
@@ -189,7 +198,7 @@ class NegotiationService:
             upsert=True,
         )
 
-    async def _load_session(self, session_id: str) -> NegotiationSession | None:
+    async def load_session(self, session_id: str) -> NegotiationSession | None:
         # Try Redis first (fast, includes TTL check)
         data = await redis.load_session(session_id)
         if data:
