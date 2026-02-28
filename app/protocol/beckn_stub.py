@@ -6,7 +6,7 @@ Real ONDC gateway integration will replace these stubs.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from app.models.beckn import BecknContext, BecknOnSelectResponse
@@ -30,7 +30,7 @@ def build_on_select_response(
             action="on_select",
             transaction_id=original_context.transaction_id,
             message_id=uuid4().hex,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             ttl="PT1M",
         ),
         message={

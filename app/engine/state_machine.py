@@ -9,7 +9,7 @@ negotiation strategy engine.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.engine.concession import compute_offer
 from app.engine.reciprocity import ReciprocityTracker
@@ -48,7 +48,7 @@ class NegotiationEngine:
         self.session.state = NegotiationState.PROPOSING
         self.session.current_round = 0
         self.session.current_seller_price = self.session.anchor_price
-        self.session.updated_at = datetime.utcnow()
+        self.session.updated_at = datetime.now(timezone.utc)
 
         offer = Offer(
             round=0,
@@ -69,7 +69,7 @@ class NegotiationEngine:
         s = self.session
         s.current_round += 1
         s.state = NegotiationState.RESPONDING
-        s.updated_at = datetime.utcnow()
+        s.updated_at = datetime.now(timezone.utc)
 
         # Record buyer offer
         buyer_offer = Offer(
@@ -136,7 +136,7 @@ class NegotiationEngine:
         if new_price < s.reservation_price:
             # Can't save the deal — below floor
             s.state = NegotiationState.BROKEN
-            s.updated_at = datetime.utcnow()
+            s.updated_at = datetime.now(timezone.utc)
             return EngineResult(
                 counter_price=s.reservation_price,
                 state=NegotiationState.BROKEN,
@@ -154,7 +154,7 @@ class NegotiationEngine:
         )
         s.offer_history.add(offer)
         s.current_seller_price = validated.price
-        s.updated_at = datetime.utcnow()
+        s.updated_at = datetime.now(timezone.utc)
 
         return EngineResult(
             counter_price=validated.price,
@@ -205,7 +205,7 @@ class NegotiationEngine:
         s = self.session
         s.state = NegotiationState.AGREED
         s.agreed_price = agreed_price
-        s.updated_at = datetime.utcnow()
+        s.updated_at = datetime.now(timezone.utc)
         return EngineResult(
             counter_price=agreed_price,
             state=NegotiationState.AGREED,
@@ -217,7 +217,7 @@ class NegotiationEngine:
         s = self.session
         # Last-ditch: offer reservation price
         s.state = NegotiationState.TIMED_OUT
-        s.updated_at = datetime.utcnow()
+        s.updated_at = datetime.now(timezone.utc)
         return EngineResult(
             counter_price=s.reservation_price,
             state=NegotiationState.TIMED_OUT,

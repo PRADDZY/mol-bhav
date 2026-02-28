@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def sign_agreement(session_id: str, agreed_price: float, product_id: str) -> dict:
@@ -20,7 +20,7 @@ def sign_agreement(session_id: str, agreed_price: float, product_id: str) -> dic
         "session_id": session_id,
         "product_id": product_id,
         "agreed_price": agreed_price,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     payload_str = json.dumps(payload, sort_keys=True)
     digest = hashlib.sha256(payload_str.encode()).hexdigest()

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -25,7 +25,7 @@ class BecknContext(BaseModel):
     action: str = ""
     transaction_id: str = Field(default_factory=lambda: uuid4().hex)
     message_id: str = Field(default_factory=lambda: uuid4().hex)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     ttl: str = "PT1M"
 
 

@@ -13,7 +13,7 @@ Binds together:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from pydantic import BaseModel
 
@@ -76,7 +76,7 @@ class NegotiationService:
             max_rounds=settings.default_max_rounds,
             ttl_seconds=settings.default_session_ttl_seconds,
             buyer_ip=buyer_ip,
-            expires_at=datetime.utcnow() + timedelta(seconds=settings.default_session_ttl_seconds),
+            expires_at=datetime.now(timezone.utc) + timedelta(seconds=settings.default_session_ttl_seconds),
         )
 
         # Start engine
@@ -110,7 +110,7 @@ class NegotiationService:
 
         # --- Bot detection ---
         detector = self._get_bot_detector(session_id)
-        detector.record(datetime.utcnow(), buyer_price)
+        detector.record(datetime.now(timezone.utc), buyer_price)
         bot_score = detector.compute_bot_score()
         session.bot_score = bot_score
 
@@ -163,7 +163,7 @@ class NegotiationService:
             "tactic": result.tactic,
             "bot_score": bot_score,
             "state": result.state.value,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
         })
 
         return self._build_response(session, dialogue, result)

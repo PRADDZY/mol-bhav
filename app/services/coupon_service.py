@@ -7,7 +7,7 @@ The AI frames them as personal favours — never reveals coupon codes.
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel
 
@@ -28,7 +28,7 @@ async def find_applicable(product_id: str, current_price: float) -> AppliedCoupo
     Returns the best (highest discount) applicable promotion, or None.
     """
     coll = promotions_collection()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
 
     cursor = coll.find({
         "$or": [
