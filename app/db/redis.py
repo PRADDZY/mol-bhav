@@ -1,15 +1,29 @@
+import asyncio
 import json
+import logging
 
 import redis.asyncio as aioredis
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 _redis: aioredis.Redis | None = None
 
 
-async def connect_redis() -> None:
+async def connect_redis(max_retries: int = 3) -> None:
     global _redis
-    _redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+    for attempt in range(1, max_retries + 1):
+        try:
+            _redis = aioredis.from_url(settings.redis_url, decode_responses=True)
+            await _redis.ping()
+            logger.info("Redis connected (attempt %d)", attempt)
+            return
+        except Exception:
+            logger.warning("Redis connection attempt %d/%d failed", attempt, max_retries)
+            if attempt == max_retries:
+                raise
+            await asyncio.sleep(2 ** attempt)
 
 
 async def close_redis() -> None:
@@ -37,11 +51,15 @@ async def store_session(session_id: str, data: dict, ttl: int) -> None:
 
 
 async def load_session(session_id: str) -> dict | None:
-    r = get_redis()
-    raw = await r.get(_key(session_id))
-    if raw is None:
+    try:
+        r = get_redis()
+        raw = await r.get(_key(session_id))
+        if raw is None:
+            return None
+        return json.loads(raw)
+    except Exception:
+        logger.warning("Redis load_session failed for %s, returning None", session_id)
         return None
-    return json.loads(raw)
 
 
 async def delete_session(session_id: str) -> None:
