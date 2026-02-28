@@ -9,14 +9,13 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
+from app.logging_config import configure_logging
+from app.middleware import RequestIDMiddleware
 from app.db.mongo import connect_mongo, close_mongo
 from app.db.redis import connect_redis, close_redis
 from app.api import negotiate, products, sessions, beckn
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-)
+configure_logging(settings.log_level)
 logger = logging.getLogger(__name__)
 
 
@@ -76,6 +75,7 @@ class BodySizeLimitMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(BodySizeLimitMiddleware)
+app.add_middleware(RequestIDMiddleware)
 
 # Routes
 app.include_router(negotiate.router)
