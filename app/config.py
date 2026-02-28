@@ -28,6 +28,7 @@ class Settings(BaseSettings):
 
     # Environment
     env: str = "development"  # development | staging | production
+    log_level: str = "INFO"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
