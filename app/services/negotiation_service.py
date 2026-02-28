@@ -99,8 +99,22 @@ class NegotiationService:
         buyer_message: str,
         buyer_price: float,
     ) -> NegotiationResponse:
-        """Process one round of negotiation."""
-        # Load session
+        """Process one round of negotiation."""        # Acquire per-session lock to prevent concurrent modifications
+        if not await redis.acquire_session_lock(session_id):
+            raise ValueError(f"Session {session_id} is currently being processed, try again")
+
+        try:
+            return await self._negotiate_locked(session_id, buyer_message, buyer_price)
+        finally:
+            await redis.release_session_lock(session_id)
+
+    async def _negotiate_locked(
+        self,
+        session_id: str,
+        buyer_message: str,
+        buyer_price: float,
+    ) -> NegotiationResponse:
+        \"\"\"Internal negotiate logic, called under session lock.\"\"\"        # Load session
         session = await self.load_session(session_id)
         if session is None:
             raise ValueError(f"Session {session_id} not found or expired")
