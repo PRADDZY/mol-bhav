@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # Security
     min_response_delay_ms: int = 2000
     cors_allowed_origins: list[str] = ["http://localhost:3000"]
+    api_admin_key: str = ""
+
+    # Environment
+    env: str = "development"  # development | staging | production
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

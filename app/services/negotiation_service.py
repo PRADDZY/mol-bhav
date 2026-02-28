@@ -13,6 +13,7 @@ Binds together:
 from __future__ import annotations
 
 import logging
+import secrets
 from datetime import datetime, timedelta, timezone
 
 from pydantic import BaseModel
@@ -33,6 +34,7 @@ logger = logging.getLogger(__name__)
 
 class NegotiationResponse(BaseModel):
     session_id: str
+    session_token: str = ""
     message: str
     current_price: float
     state: str
@@ -76,6 +78,7 @@ class NegotiationService:
             max_rounds=settings.default_max_rounds,
             ttl_seconds=settings.default_session_ttl_seconds,
             buyer_ip=buyer_ip,
+            session_token=secrets.token_urlsafe(32),
             expires_at=datetime.now(timezone.utc) + timedelta(seconds=settings.default_session_ttl_seconds),
         )
 
@@ -233,6 +236,7 @@ class NegotiationService:
     ) -> NegotiationResponse:
         return NegotiationResponse(
             session_id=session.session_id,
+            session_token=session.session_token,
             message=dialogue.message,
             current_price=result.counter_price,
             state=result.state.value,

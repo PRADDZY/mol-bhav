@@ -34,11 +34,15 @@ async def lifespan(app: FastAPI):
     logger.info("Mol-Bhav engine shut down")
 
 
+_is_prod = settings.env.lower() == "production"
+
 app = FastAPI(
     title="Mol-Bhav",
     description="AI Negotiation Engine — Indian Bazaar-style haggling for e-commerce",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=None if _is_prod else "/docs",
+    redoc_url=None if _is_prod else "/redoc",
 )
 
 

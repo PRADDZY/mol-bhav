@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from pymongo.errors import DuplicateKeyError
 
+from app.auth import verify_admin_key
 from app.db.mongo import products_collection
 
 logger = logging.getLogger(__name__)
@@ -27,7 +28,10 @@ class CreateProductRequest(BaseModel):
 
 
 @router.post("", status_code=201)
-async def create_product(body: CreateProductRequest):
+async def create_product(
+    body: CreateProductRequest,
+    _admin: str = Depends(verify_admin_key),
+):
     """Add a product to the catalog."""
     doc = body.model_dump()
     doc["_id"] = doc.pop("id")
