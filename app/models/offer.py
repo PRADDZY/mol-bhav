@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -13,7 +13,7 @@ class Offer(BaseModel):
     round: int
     actor: Actor
     price: float = Field(gt=0)
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     concession_delta: float = 0.0
     message: str = ""
 
