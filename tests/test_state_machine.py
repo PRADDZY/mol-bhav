@@ -30,14 +30,15 @@ def test_start_returns_anchor():
 
 def test_buyer_offers_above_willingness_accepted():
     """If buyer offers >= what seller would ask, accept immediately."""
-    session = _make_session()
+    session = _make_session(beta=1.0)  # linear for predictable acceptance
     engine = NegotiationEngine(session)
     engine.start_negotiation()
 
-    # Buyer offers 950 — above boulware curve at round 1
-    result = engine.process_buyer_offer(950)
+    # At round 1 of 10, linear: P(1) = 1000 + (700-1000)*0.1 = 970
+    # Buyer offers 975 → above willingness → accept
+    result = engine.process_buyer_offer(975)
     assert result.state == NegotiationState.AGREED
-    assert result.counter_price == 950
+    assert result.counter_price == 975
     assert result.acceptance_threshold_met
 
 

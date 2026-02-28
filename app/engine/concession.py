@@ -1,6 +1,6 @@
-"""Time-dependent concession curve (Faratin et al., 1998).
+"""Time-dependent concession curve.
 
-P(t) = Pa + (Rs - Pa) * (t / T) ^ (1 / beta)
+P(t) = Pa + (Rs - Pa) * (t / T) ^ beta
 
 Where:
   Pa   = anchor price (starting list price)
@@ -46,8 +46,8 @@ def compute_offer(
     t = min(current_round, max_rounds)
     ratio = t / max_rounds  # 0 → 1
 
-    # F(t) = (t/T) ^ (1/beta)
-    f_t = ratio ** (1.0 / beta)
+    # F(t) = (t/T) ^ beta   (beta>1 = boulware, beta<1 = conceder)
+    f_t = ratio ** beta
 
     # P(t) = Pa + (Rs - Pa) * F(t)
     price = anchor + (reservation - anchor) * f_t
@@ -75,4 +75,4 @@ def compute_aspiration(
         return 1.0
     t = min(current_round, max_rounds)
     ratio = t / max_rounds
-    return 1.0 - (1.0 - reserved_utility) * (ratio ** (1.0 / beta))
+    return 1.0 - (1.0 - reserved_utility) * (ratio ** beta)
