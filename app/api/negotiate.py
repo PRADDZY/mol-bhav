@@ -1,0 +1,79 @@
+"""Negotiation API routes — the main interaction endpoints."""
+
+from __future__ import annotations
+
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel, Field
+
+from app.db.redis import check_cooldown, set_cooldown
+from app.config import settings
+from app.services.negotiation_service import NegotiationService
+
+router = APIRouter(prefix="/api/v1/negotiate", tags=["negotiate"])
+
+_service = NegotiationService()
+
+
+class StartRequest(BaseModel):
+    product_id: str
+    buyer_name: str = ""
+
+
+class OfferRequest(BaseModel):
+    message: str = ""
+    price: float = Field(gt=0)
+
+
+@router.post("/start")
+async def start_negotiation(body: StartRequest, request: Request):
+    """Begin a new negotiation session for a product."""
+    try:
+        buyer_ip = request.client.host if request.client else ""
+        result = await _service.start(
+            product_id=body.product_id,
+            buyer_name=body.buyer_name,
+            buyer_ip=buyer_ip,
+        )
+        return result.model_dump()
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.post("/{session_id}/offer")
+async def make_offer(session_id: str, body: OfferRequest):
+    """Submit a buyer offer in an active negotiation."""
+    # Cooldown check (bot defense — 2s between turns)
+    if await check_cooldown(session_id):
+        raise HTTPException(
+            status_code=429,
+            detail="Please wait before making another offer.",
+        )
+
+    try:
+        result = await _service.negotiate(
+            session_id=session_id,
+            buyer_message=body.message,
+            buyer_price=body.price,
+        )
+        # Set cooldown after successful processing
+        await set_cooldown(session_id, settings.min_response_delay_ms)
+        return result.model_dump()
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/{session_id}/status")
+async def get_status(session_id: str):
+    """Get current negotiation status."""
+    session = await _service._load_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found or expired")
+    return {
+        "session_id": session.session_id,
+        "state": session.state.value,
+        "current_round": session.current_round,
+        "max_rounds": session.max_rounds,
+        "current_seller_price": session.current_seller_price,
+        "agreed_price": session.agreed_price,
+        "bot_score": session.bot_score,
+    }

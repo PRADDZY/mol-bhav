@@ -1,0 +1,33 @@
+"""Placeholder for bilateral digital signatures.
+
+In production, this would sign agreed-upon quotes to create
+a tamper-proof bilateral transaction record.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from datetime import datetime
+
+
+def sign_agreement(session_id: str, agreed_price: float, product_id: str) -> dict:
+    """Generate a stub 'digital signature' for a completed negotiation.
+
+    In production, replace with proper asymmetric crypto (Ed25519 / RSA).
+    """
+    payload = {
+        "session_id": session_id,
+        "product_id": product_id,
+        "agreed_price": agreed_price,
+        "timestamp": datetime.utcnow().isoformat(),
+    }
+    payload_str = json.dumps(payload, sort_keys=True)
+    digest = hashlib.sha256(payload_str.encode()).hexdigest()
+
+    return {
+        **payload,
+        "signature": digest,
+        "algorithm": "sha256-stub",
+        "note": "Placeholder — replace with proper signing in production",
+    }
