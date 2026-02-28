@@ -34,20 +34,31 @@ Indian Bazaar-style haggling engine for e-commerce. Combines a deterministic SAO
 
 ```bash
 # 1. Start MongoDB + Redis
-docker compose up -d
+docker compose up -d mongodb redis
 
 # 2. Install dependencies
 pip install -e ".[dev]"
 
 # 3. Configure
 cp .env.example .env
-# Edit .env with your OpenAI API key
+# Edit .env with your OpenAI API key and DB credentials
 
-# 4. Run
+# 4. Seed demo data
+python -m scripts.seed
+
+# 5. Run
 uvicorn app.main:app --reload
 
-# 5. Test
+# 6. Test
 pytest tests/ -v
+```
+
+### Docker (Full Stack)
+
+```bash
+cp .env.example .env   # configure secrets
+docker compose up --build
+# App at http://localhost:8000, health at /health
 ```
 
 ## API
@@ -111,3 +122,19 @@ Combined with **Tit-for-Tat reciprocity**: mirrors buyer concessions at a damped
 - Redis (aioredis) — active session TTL management
 - OpenAI GPT-4o — Hinglish dialogue generation
 - Beckn/ONDC protocol stubs (ready for gateway integration)
+
+## Security
+
+| Layer | Protection |
+|-------|-----------|
+| **Admin routes** | `X-API-Key` header validated against `API_ADMIN_KEY` env var |
+| **Buyer routes** | `X-Session-Token` header (returned on `/start`, required on `/offer` and `/status`) |
+| **Rate limiting** | Per-IP limit on `/start` (default 30/min), per-session cooldown on `/offer` (2s) |
+| **Input validation** | Session ID format (`^[a-f0-9]{32}$`), product ID format (`^[a-zA-Z0-9_-]{1,100}$`) |
+| **Body size** | 64 KB max request body |
+| **Prompt injection** | Buyer messages sanitized — control chars stripped, injection patterns redacted |
+| **CORS** | Restricted origins, methods, and headers |
+| **Swagger** | `/docs` and `/redoc` auto-disabled when `ENV=production` |
+| **Database auth** | MongoDB + Redis credentials configured via env vars |
+| **Distributed locks** | Redis-based per-session lock prevents concurrent offer processing |
+| **Structured logging** | JSON-formatted logs with `X-Request-ID` tracing |
