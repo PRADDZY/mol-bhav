@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum
+import logging
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -59,6 +60,13 @@ class NegotiationSession(BaseModel):
         return d
 
     @classmethod
-    def from_mongo(cls, doc: dict) -> "NegotiationSession":
-        doc["session_id"] = doc.pop("_id")
-        return cls(**doc)
+    def from_mongo(cls, doc: dict) -> "NegotiationSession | None":
+        try:
+            doc["session_id"] = doc.pop("_id")
+            return cls(**doc)
+        except Exception:
+            logging.getLogger(__name__).exception(
+                "Failed to deserialize session from MongoDB: %s",
+                doc.get("session_id", "unknown"),
+            )
+            return None
