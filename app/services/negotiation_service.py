@@ -117,7 +117,8 @@ class NegotiationService:
         buyer_message: str,
         buyer_price: float,
     ) -> NegotiationResponse:
-        \"\"\"Internal negotiate logic, called under session lock.\"\"\"        # Load session
+        """Internal negotiate logic, called under session lock."""
+        # Load session
         session = await self.load_session(session_id)
         if session is None:
             raise ValueError(f"Session {session_id} not found or expired")
