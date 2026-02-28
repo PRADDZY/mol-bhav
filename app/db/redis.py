@@ -74,3 +74,21 @@ async def check_cooldown(session_id: str) -> bool:
 async def set_cooldown(session_id: str, ms: int) -> None:
     r = get_redis()
     await r.set(_cooldown_key(session_id), "1", px=ms)
+
+
+# --- Distributed lock helpers ---
+
+def _lock_key(session_id: str) -> str:
+    return f"nego:lock:{session_id}"
+
+
+async def acquire_session_lock(session_id: str, timeout: int = 5) -> bool:
+    """Acquire a per-session distributed lock. Returns True if acquired."""
+    r = get_redis()
+    return bool(await r.set(_lock_key(session_id), "1", nx=True, ex=timeout))
+
+
+async def release_session_lock(session_id: str) -> None:
+    """Release a per-session distributed lock."""
+    r = get_redis()
+    await r.delete(_lock_key(session_id))
