@@ -2,16 +2,31 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.db.redis import check_cooldown, set_cooldown
+from app.db.redis import check_cooldown, set_cooldown, get_redis
 from app.config import settings
 from app.api.deps import get_negotiation_service
 from app.auth import verify_session_token
 from app.services.negotiation_service import NegotiationService
 
 router = APIRouter(prefix="/api/v1/negotiate", tags=["negotiate"])
+
+_SESSION_ID_RE = re.compile(r"^[a-f0-9]{32}$")
+
+
+async def _check_ip_rate_limit(ip: str) -> None:
+    """Enforce per-IP rate limiting on /start using Redis."""
+    r = get_redis()
+    key = f"nego:ratelimit:{ip}"
+    count = await r.incr(key)
+    if count == 1:
+        await r.expire(key, 60)
+    if count > settings.max_requests_per_minute_per_ip:
+        raise HTTPException(status_code=429, detail="Rate limit exceeded. Try again later.")
 
 
 class StartRequest(BaseModel):
@@ -33,6 +48,8 @@ async def start_negotiation(
     """Begin a new negotiation session for a product."""
     try:
         buyer_ip = request.client.host if request.client else ""
+        if buyer_ip:
+            await _check_ip_rate_limit(buyer_ip)
         result = await service.start(
             product_id=body.product_id,
             buyer_name=body.buyer_name,
@@ -51,6 +68,9 @@ async def make_offer(
     service: NegotiationService = Depends(get_negotiation_service),
 ):
     """Submit a buyer offer in an active negotiation."""
+    if not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session ID format")
+
     # Cooldown check (bot defense — 2s between turns)
     if await check_cooldown(session_id):
         raise HTTPException(
@@ -78,6 +98,9 @@ async def get_status(
     service: NegotiationService = Depends(get_negotiation_service),
 ):
     """Get current negotiation status."""
+    if not _SESSION_ID_RE.match(session_id):
+        raise HTTPException(status_code=400, detail="Invalid session ID format")
+
     session = await service.load_session(session_id)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found or expired")

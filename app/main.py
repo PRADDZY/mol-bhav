@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.config import settings
 from app.db.mongo import connect_mongo, close_mongo
@@ -60,9 +61,21 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-API-Key", "X-Session-Token", "X-Request-ID"],
 )
+
+
+# Request body size limit middleware
+class BodySizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > settings.max_request_body_bytes:
+            return JSONResponse(status_code=413, content={"detail": "Request body too large"})
+        return await call_next(request)
+
+
+app.add_middleware(BodySizeLimitMiddleware)
 
 # Routes
 app.include_router(negotiate.router)
@@ -73,4 +86,20 @@ app.include_router(beckn.router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "engine": "mol-bhav", "version": "1.0.0"}
+    checks = {"engine": "mol-bhav", "version": "1.0.0"}
+    try:
+        from app.db.mongo import get_db
+        await get_db().command("ping")
+        checks["mongodb"] = "ok"
+    except Exception:
+        checks["mongodb"] = "unavailable"
+    try:
+        from app.db.redis import get_redis
+        await get_redis().ping()
+        checks["redis"] = "ok"
+    except Exception:
+        checks["redis"] = "unavailable"
+
+    all_ok = checks["mongodb"] == "ok" and checks["redis"] == "ok"
+    checks["status"] = "ok" if all_ok else "degraded"
+    return JSONResponse(content=checks, status_code=200 if all_ok else 503)
