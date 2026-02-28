@@ -41,6 +41,7 @@ class NegotiationSession(BaseModel):
     # Security
     bot_score: float = 0.0
     buyer_ip: str = ""
+    session_token: str = ""
 
     # Timestamps
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

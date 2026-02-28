@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.db.redis import check_cooldown, set_cooldown
 from app.config import settings
 from app.api.deps import get_negotiation_service
+from app.auth import verify_session_token
 from app.services.negotiation_service import NegotiationService
 
 router = APIRouter(prefix="/api/v1/negotiate", tags=["negotiate"])
@@ -46,6 +47,7 @@ async def start_negotiation(
 async def make_offer(
     session_id: str,
     body: OfferRequest,
+    _token: str = Depends(verify_session_token),
     service: NegotiationService = Depends(get_negotiation_service),
 ):
     """Submit a buyer offer in an active negotiation."""
@@ -72,6 +74,7 @@ async def make_offer(
 @router.get("/{session_id}/status")
 async def get_status(
     session_id: str,
+    _token: str = Depends(verify_session_token),
     service: NegotiationService = Depends(get_negotiation_service),
 ):
     """Get current negotiation status."""
