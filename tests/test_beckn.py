@@ -48,6 +48,7 @@ def _patch_db():
         patch("app.db.redis.connect_redis", new_callable=AsyncMock),
         patch("app.db.redis.close_redis", new_callable=AsyncMock),
         patch("app.db.redis.get_redis", return_value=_fake_redis),
+        patch("app.api.negotiate.get_redis", return_value=_fake_redis),
         patch("app.db.redis.check_cooldown", new_callable=AsyncMock, return_value=False),
         patch("app.db.redis.set_cooldown", new_callable=AsyncMock),
         patch("app.db.redis.acquire_session_lock", new_callable=AsyncMock, return_value=True),
