@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    if not settings.openai_api_key:
-        logger.warning("OPENAI_API_KEY not set — dialogue generation will use fallback responses")
+    if not settings.nim_api_key:
+        logger.warning("NIM_API_KEY not set — dialogue generation will use fallback responses")
     await connect_mongo()
     await connect_redis()
     logger.info("Mol-Bhav engine started successfully")
