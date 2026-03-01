@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 from app.services.negotiation_service import NegotiationService
 
-_service: NegotiationService | None = None
 
-
+@lru_cache(maxsize=1)
 def get_negotiation_service() -> NegotiationService:
     """Lazy singleton — instantiated on first request, not at import time."""
-    global _service
-    if _service is None:
-        _service = NegotiationService()
-    return _service
+    return NegotiationService()
