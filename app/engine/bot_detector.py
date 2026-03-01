@@ -45,6 +45,9 @@ class BotDetector:
             delta = (self._timestamps[i] - self._timestamps[i - 1]).total_seconds()
             intervals.append(delta)
 
+        if not intervals:
+            return 0.0
+
         # Check if intervals are suspiciously fast
         avg_interval = statistics.mean(intervals)
         speed_score = max(0.0, 1.0 - avg_interval / (self.min_interval_sec * 3))
@@ -64,6 +67,9 @@ class BotDetector:
             return 0.0
 
         deltas = [self._offers[i] - self._offers[i - 1] for i in range(1, len(self._offers))]
+
+        if not deltas:
+            return 0.0
 
         # Check fixed-increment pattern (all deltas identical)
         if len(set(round(d, 2) for d in deltas)) == 1:
