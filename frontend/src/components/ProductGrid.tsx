@@ -69,7 +69,7 @@ export function ProductGrid({ products }: { products: Product[] }) {
             <Card className="group h-full cursor-pointer transition-shadow hover:shadow-lg hover:shadow-primary/10">
               {/* Gradient placeholder for product image */}
               <div
-                className={`relative h-44 rounded-t-xl bg-gradient-to-br ${GRADIENTS[i % GRADIENTS.length]} flex items-center justify-center`}
+                className={`relative h-44 rounded-t-xl bg-linear-to-br ${GRADIENTS[i % GRADIENTS.length]} flex items-center justify-center`}
               >
                 <span className="text-5xl drop-shadow-md">
                   {getCategoryIcon(product.category)}

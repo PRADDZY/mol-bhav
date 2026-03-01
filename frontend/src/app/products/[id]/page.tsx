@@ -63,7 +63,7 @@ export default async function ProductDetailPage({
       <div className="grid gap-8 md:grid-cols-2">
         {/* Product Image Placeholder */}
         <div
-          className={`flex aspect-square items-center justify-center rounded-2xl bg-gradient-to-br ${GRADIENTS[gradientIndex]}`}
+          className={`flex aspect-square items-center justify-center rounded-2xl bg-linear-to-br ${GRADIENTS[gradientIndex]}`}
         >
           <span className="text-8xl drop-shadow-lg">
             {getCategoryIcon(product.category)}
