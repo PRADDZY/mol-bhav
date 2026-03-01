@@ -90,8 +90,12 @@ class NegotiationService:
 
         # Generate opening dialogue
         dialogue = await self._dialogue.generate_response(
-            session, result, buyer_name or "Customer"
+            session, result, buyer_name or "Customer", language=language
         )
+
+        # Include CoT reasoning in dev metadata
+        if dialogue.reasoning and settings.env == "development":
+            result.metadata["reasoning"] = dialogue.reasoning
 
         # Persist
         await self._persist_session(session)
@@ -110,7 +114,9 @@ class NegotiationService:
             raise ValueError(f"Session {session_id} is currently being processed, try again")
 
         try:
-            return await self._negotiate_locked(session_id, buyer_message, buyer_price)
+            return await self._negotiate_locked(
+                session_id, buyer_message, buyer_price, language=language
+            )
         finally:
             await redis.release_session_lock(session_id)
 
@@ -119,6 +125,7 @@ class NegotiationService:
         session_id: str,
         buyer_message: str,
         buyer_price: float,
+        language: str = "en",
     ) -> NegotiationResponse:
         """Internal negotiate logic, called under session lock."""
         # Load session
@@ -169,7 +176,13 @@ class NegotiationService:
                     result.metadata["coupon_discount"] = coupon.discount_amount
 
         # --- Dialogue generation ---
-        dialogue = await self._dialogue.generate_response(session, result, buyer_message)
+        dialogue = await self._dialogue.generate_response(
+            session, result, buyer_message, language=language
+        )
+
+        # Include CoT reasoning in dev metadata
+        if dialogue.reasoning and settings.env == "development":
+            result.metadata["reasoning"] = dialogue.reasoning
 
         # --- Persist ---
         await self._persist_session(session)

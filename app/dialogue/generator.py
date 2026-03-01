@@ -1,7 +1,9 @@
-"""GPT-4o dialogue generator — the "Mouth" of Mol-Bhav.
+"""NVIDIA NIM dialogue generator — the "Mouth" of Mol-Bhav.
 
 Takes the engine's strategic output (counter-price, tactic) and wraps it
 in a culturally resonant Hinglish shopkeeper response.
+
+Uses NVIDIA NIM's OpenAI-compatible API with Chain-of-Thought reasoning.
 """
 
 from __future__ import annotations
@@ -29,23 +31,63 @@ _INJECTION_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
+_THINK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+_JSON_RE = re.compile(r"\{[\s\S]*\}")
+
 
 def _load_prompt(name: str) -> str:
     return (_PROMPT_DIR / name).read_text(encoding="utf-8")
 
 
+def _extract_think_and_json(raw: str) -> tuple[str, dict]:
+    """Parse CoT <think> block and JSON payload from LLM output.
+
+    Returns (reasoning_text, parsed_json_dict).
+    """
+    reasoning = ""
+    think_match = _THINK_RE.search(raw)
+    if think_match:
+        reasoning = think_match.group(1).strip()
+        raw = raw[think_match.end() :]  # everything after </think>
+
+    # Try strict JSON parse first
+    try:
+        return reasoning, json.loads(raw.strip())
+    except json.JSONDecodeError:
+        pass
+
+    # Fallback: extract first JSON object from text
+    json_match = _JSON_RE.search(raw)
+    if json_match:
+        try:
+            return reasoning, json.loads(json_match.group())
+        except json.JSONDecodeError:
+            pass
+
+    return reasoning, {}
+
+
 class DialogueResponse:
-    def __init__(self, message: str, price: float, sentiment: str, tactic: str):
+    def __init__(
+        self,
+        message: str,
+        price: float,
+        sentiment: str,
+        tactic: str,
+        reasoning: str = "",
+    ):
         self.message = message
         self.price = price
         self.sentiment = sentiment
         self.tactic = tactic
+        self.reasoning = reasoning
 
 
 class DialogueGenerator:
     def __init__(self):
         self._client = AsyncOpenAI(
-            api_key=settings.openai_api_key,
+            base_url=settings.nim_base_url,
+            api_key=settings.nim_api_key,
             timeout=30.0,
         )
         self._system_prompt = _load_prompt("system.txt")
@@ -68,13 +110,16 @@ class DialogueGenerator:
         session: NegotiationSession,
         engine_result: EngineResult,
         buyer_message: str = "",
+        language: str = "en",
     ) -> DialogueResponse:
         """Generate a Hinglish shopkeeper response for the current turn."""
         system = self._system_prompt
         buyer_message = self._sanitize_buyer_message(buyer_message)
 
         # Build context for the LLM
-        user_context = self._build_user_prompt(session, engine_result, buyer_message)
+        user_context = self._build_user_prompt(
+            session, engine_result, buyer_message, language
+        )
 
         # Pick template overlay based on tactic
         if engine_result.tactic == "walk_away_save":
@@ -99,27 +144,7 @@ class DialogueGenerator:
             )
             user_context += f"\n\nSPECIAL INSTRUCTION:\n{extra}"
 
-        try:
-            resp = await self._client.chat.completions.create(
-                model=settings.openai_model,
-                messages=[
-                    {"role": "system", "content": system},
-                    {"role": "user", "content": user_context},
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.8,
-                max_tokens=300,
-            )
-            raw = resp.choices[0].message.content or "{}"
-            data = json.loads(raw)
-        except (openai.APIError, openai.APITimeoutError, json.JSONDecodeError):
-            logger.exception("LLM call failed, using fallback response")
-            data = {
-                "message": f"Bhaiya, best price for you — ₹{engine_result.counter_price}. Isse kam nahi hoga.",
-                "suggested_price": engine_result.counter_price,
-                "sentiment": "firm",
-                "tactic": engine_result.tactic,
-            }
+        reasoning, data = await self._call_nim(system, user_context, engine_result)
 
         # Validate: LLM must not override the engine's price
         llm_price = data.get("suggested_price", engine_result.counter_price)
@@ -136,13 +161,71 @@ class DialogueGenerator:
             price=final_price,
             sentiment=data.get("sentiment", "firm"),
             tactic=data.get("tactic", engine_result.tactic),
+            reasoning=reasoning,
         )
+
+    async def _call_nim(
+        self,
+        system: str,
+        user_context: str,
+        engine_result: EngineResult,
+    ) -> tuple[str, dict]:
+        """Call NVIDIA NIM API with JSON-mode fallback and CoT extraction."""
+        messages = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": user_context},
+        ]
+        fallback = {
+            "message": f"Bhaiya, best price for you — ₹{engine_result.counter_price}. Isse kam nahi hoga.",
+            "suggested_price": engine_result.counter_price,
+            "sentiment": "firm",
+            "tactic": engine_result.tactic,
+        }
+
+        # Attempt 1: with response_format JSON mode
+        try:
+            resp = await self._client.chat.completions.create(
+                model=settings.nim_model,
+                messages=messages,
+                response_format={"type": "json_object"},
+                temperature=0.8,
+                max_tokens=512,
+            )
+            raw = resp.choices[0].message.content or "{}"
+            reasoning, data = _extract_think_and_json(raw)
+            if data:
+                return reasoning, data
+        except openai.BadRequestError:
+            # NIM may not support response_format — fall through to attempt 2
+            logger.info("NIM rejected JSON mode, retrying without response_format")
+        except (openai.APIError, openai.APITimeoutError):
+            logger.exception("NIM API call failed, using fallback response")
+            return "", fallback
+
+        # Attempt 2: without response_format (extract JSON from text)
+        try:
+            resp = await self._client.chat.completions.create(
+                model=settings.nim_model,
+                messages=messages,
+                temperature=0.8,
+                max_tokens=512,
+            )
+            raw = resp.choices[0].message.content or ""
+            reasoning, data = _extract_think_and_json(raw)
+            if data:
+                return reasoning, data
+            logger.warning("Could not parse JSON from NIM response, using fallback")
+            return reasoning, fallback
+        except (openai.APIError, openai.APITimeoutError):
+            logger.exception("NIM API call failed (attempt 2), using fallback response")
+            return "", fallback
 
     def _build_user_prompt(
         self,
         session: NegotiationSession,
         engine_result: EngineResult,
         buyer_message: str,
+        language: str = "en",
     ) -> str:
         history_lines = []
         for o in session.offer_history.offers[-6:]:  # last 6 turns for context
@@ -151,11 +234,15 @@ class DialogueGenerator:
 
         history_str = "\n".join(history_lines) if history_lines else "  (No history yet)"
 
+        lang_note = ""
+        if language != "en":
+            lang_note = f"\nLANGUAGE PREFERENCE: The customer prefers '{language}'. Adjust your Hinglish accordingly.\n"
+
         return f"""CURRENT NEGOTIATION STATE:
 Product: {session.product_name}
 List price: ₹{session.anchor_price}
 Round: {session.current_round} / {session.max_rounds}
-
+{lang_note}
 OFFER HISTORY (recent):
 {history_str}
 

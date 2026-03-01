@@ -2,9 +2,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # LLM
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o"
+    # LLM — NVIDIA NIM (OpenAI-compatible)
+    nim_api_key: str = ""
+    nim_base_url: str = "https://integrate.api.nvidia.com/v1"
+    nim_model: str = "z-ai/glm4_7"
 
     # Database
     mongodb_url: str = "mongodb://localhost:27017"
