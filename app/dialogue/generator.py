@@ -95,6 +95,16 @@ class DialogueGenerator:
         self._bundle_prompt = _load_prompt("bundle.txt")
 
     @staticmethod
+    def _sanitize_template_value(val: str | float | int) -> str:
+        """Sanitize a value before template interpolation to prevent prompt injection."""
+        s = str(val)
+        # Strip any characters that could be used for prompt injection in templates
+        s = re.sub(r"[\x00-\x09\x0b-\x1f\x7f]", "", s)
+        if _INJECTION_PATTERNS.search(s):
+            return "[redacted]"
+        return s[:200]  # cap length to prevent prompt stuffing
+
+    @staticmethod
     def _sanitize_buyer_message(msg: str) -> str:
         """Truncate, strip control chars, redact prompt injection attempts."""
         msg = msg[:_MAX_BUYER_MSG_LEN]
@@ -124,23 +134,25 @@ class DialogueGenerator:
         # Pick template overlay based on tactic
         if engine_result.tactic == "walk_away_save":
             extra = self._walk_away_prompt.format(
-                product_name=session.product_name,
-                buyer_price=session.offer_history.last_buyer_offer.price
-                if session.offer_history.last_buyer_offer
-                else "?",
-                current_price=session.current_seller_price,
-                save_price=engine_result.counter_price,
+                product_name=self._sanitize_template_value(session.product_name),
+                buyer_price=self._sanitize_template_value(
+                    session.offer_history.last_buyer_offer.price
+                    if session.offer_history.last_buyer_offer
+                    else "?"
+                ),
+                current_price=self._sanitize_template_value(session.current_seller_price),
+                save_price=self._sanitize_template_value(engine_result.counter_price),
             )
             user_context += f"\n\nSPECIAL INSTRUCTION:\n{extra}"
 
         elif engine_result.tactic == "quantity_pivot":
             meta = engine_result.metadata
             extra = self._bundle_prompt.format(
-                product_name=session.product_name,
-                unit_price=engine_result.counter_price,
-                quantity=meta.get("quantity", 2),
-                bundle_price=engine_result.counter_price,
-                bundle_total=meta.get("bundle_total", 0),
+                product_name=self._sanitize_template_value(session.product_name),
+                unit_price=self._sanitize_template_value(engine_result.counter_price),
+                quantity=self._sanitize_template_value(meta.get("quantity", 2)),
+                bundle_price=self._sanitize_template_value(engine_result.counter_price),
+                bundle_total=self._sanitize_template_value(meta.get("bundle_total", 0)),
             )
             user_context += f"\n\nSPECIAL INSTRUCTION:\n{extra}"
 

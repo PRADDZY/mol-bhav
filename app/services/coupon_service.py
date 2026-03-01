@@ -7,6 +7,7 @@ The AI frames them as personal favours — never reveals coupon codes.
 from __future__ import annotations
 
 import logging
+import re
 from datetime import datetime, timezone
 
 from pydantic import BaseModel
@@ -14,6 +15,8 @@ from pydantic import BaseModel
 from app.db.mongo import promotions_collection
 
 logger = logging.getLogger(__name__)
+
+_PRODUCT_ID_RE = re.compile(r"^[a-zA-Z0-9_-]{1,100}$")
 
 
 class AppliedCoupon(BaseModel):
@@ -27,6 +30,9 @@ async def find_applicable(product_id: str, current_price: float) -> AppliedCoupo
 
     Returns the best (highest discount) applicable promotion, or None.
     """
+    if not _PRODUCT_ID_RE.match(product_id):
+        logger.warning("Invalid product_id format in coupon lookup: %s", product_id[:50])
+        return None
     coll = promotions_collection()
     now = datetime.now(timezone.utc)
 
