@@ -66,6 +66,12 @@ class NegotiationEngine:
 
     def process_buyer_offer(self, buyer_price: float) -> EngineResult:
         """Process incoming buyer offer and generate counter."""
+        import math
+        if not isinstance(buyer_price, (int, float)) or math.isnan(buyer_price) or math.isinf(buyer_price):
+            raise ValueError("buyer_price must be a finite number")
+        if buyer_price <= 0:
+            raise ValueError("buyer_price must be positive")
+
         s = self.session
         s.current_round += 1
         s.state = NegotiationState.RESPONDING
