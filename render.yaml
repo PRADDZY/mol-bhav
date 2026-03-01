@@ -1,0 +1,88 @@
+services:
+  # FastAPI Backend
+  - type: web
+    name: mol-bhav-api
+    runtime: python
+    plan: free
+    region: oregon
+    buildCommand: pip install -e .
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: NIM_API_KEY
+        sync: false
+      - key: NIM_BASE_URL
+        value: https://integrate.api.nvidia.com/v1
+      - key: NIM_MODEL
+        value: z-ai/glm4_7
+      - key: MONGODB_URL
+        fromDatabase:
+          name: mol-bhav-db
+          property: connectionString
+      - key: MONGODB_DB_NAME
+        value: mol_bhav
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: mol-bhav-redis
+          property: connectionString
+      - key: DEFAULT_BETA
+        value: 5.0
+      - key: DEFAULT_ALPHA
+        value: 0.6
+      - key: DEFAULT_MAX_ROUNDS
+        value: 15
+      - key: DEFAULT_SESSION_TTL_SECONDS
+        value: 300
+      - key: MIN_RESPONSE_DELAY_MS
+        value: 2000
+      - key: ENV
+        value: production
+      - key: API_ADMIN_KEY
+        generateValue: true
+      - key: CORS_ALLOWED_ORIGINS
+        value: '["https://mol-bhav.onrender.com"]'
+
+  # MongoDB Database
+  - type: pserv
+    name: mol-bhav-db
+    runtime: docker
+    plan: free
+    region: oregon
+    repo: https://github.com/PRADDZY/mol-bhav.git
+    dockerfilePath: ./Dockerfile.mongo
+    disk:
+      name: mongo-data
+      mountPath: /data/db
+      sizeGB: 1
+    envVars:
+      - key: MONGO_INITDB_ROOT_USERNAME
+        value: molbhav
+      - key: MONGO_INITDB_ROOT_PASSWORD
+        generateValue: true
+
+  # Redis Cache
+  - type: redis
+    name: mol-bhav-redis
+    plan: free
+    region: oregon
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
+
+  # Next.js Frontend (optional - can deploy separately to Vercel)
+  # - type: web
+  #   name: mol-bhav-frontend
+  #   runtime: node
+  #   plan: free
+  #   region: oregon
+  #   rootDir: frontend
+  #   buildCommand: npm install && npm run build
+  #   startCommand: npm start
+  #   envVars:
+  #     - key: NEXT_PUBLIC_API_URL
+  #       fromService:
+  #         type: web
+  #         name: mol-bhav-api
+  #         envVarKey: RENDER_EXTERNAL_URL
