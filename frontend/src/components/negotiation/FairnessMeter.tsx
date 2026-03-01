@@ -21,14 +21,15 @@ function formatPrice(price: number) {
 
 interface FairnessMeterProps {
   anchorPrice: number;
+  visualFloorPercent?: number;
 }
 
-export function FairnessMeter({ anchorPrice }: FairnessMeterProps) {
+export function FairnessMeter({ anchorPrice, visualFloorPercent = 0.6 }: FairnessMeterProps) {
   const currentPrice = useNegotiationStore((s) => s.currentPrice);
   const state = useNegotiationStore((s) => s.state);
 
-  // Visual floor at ~60% of anchor (don't reveal exact reservation price)
-  const visualFloor = anchorPrice * 0.6;
+  // Visual floor (don't reveal exact reservation price)
+  const visualFloor = anchorPrice * visualFloorPercent;
   const range = anchorPrice - visualFloor;
 
   // Clamp percentage between 0 and 100
