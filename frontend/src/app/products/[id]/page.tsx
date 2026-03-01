@@ -3,16 +3,9 @@ import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ProductActions } from "./ProductActions";
+import { GRADIENTS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
-
-const GRADIENTS = [
-  "from-orange-400 via-rose-400 to-pink-500",
-  "from-blue-400 via-indigo-500 to-purple-500",
-  "from-emerald-400 via-teal-500 to-cyan-500",
-  "from-amber-400 via-orange-500 to-red-500",
-  "from-violet-400 via-purple-500 to-fuchsia-500",
-];
 
 function getCategoryIcon(category: string) {
   const map: Record<string, string> = {
