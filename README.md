@@ -1,6 +1,6 @@
 # Mol-Bhav — AI Negotiation Engine
 
-Indian Bazaar-style haggling engine for e-commerce. Combines a deterministic SAO (Stacked Alternating Offers) strategy engine with GPT-4o-powered Hinglish dialogue to simulate real shopkeeper negotiation.
+Indian Bazaar-style haggling engine for e-commerce. Combines a deterministic SAO (Stacked Alternating Offers) strategy engine with NVIDIA NIM-powered Hinglish dialogue (GLM-4.7 via Chain-of-Thought reasoning) to simulate real shopkeeper negotiation.
 
 ## Architecture
 
@@ -19,15 +19,15 @@ Indian Bazaar-style haggling engine for e-commerce. Combines a deterministic SAO
     │Engine │ │Dialogue  │ │ Bot       │
     │(Brain)│ │(Mouth)   │ │ Detector  │
     ├───────┤ ├──────────┤ └───────────┘
-    │Concess│ │GPT-4o    │
+    │Concess│ │NIM/GLM   │
     │Recipro│ │Hinglish  │
-    │Validat│ │Persona   │
+    │Validat│ │CoT+JSON  │
     └───────┘ └──────────┘
 ```
 
 **Three layers:**
 - **Strategy Engine** — Concession curves, TFT reciprocity, price validation
-- **Dialogue Engine** — GPT-4o Hinglish "Bhaiya/Didi" persona
+- **Dialogue Engine** — NVIDIA NIM (GLM-4.7) Hinglish "Bhaiya/Didi" persona with Chain-of-Thought reasoning
 - **Protocol Layer** — Beckn/ONDC-compatible quote objects with TTL
 
 ## Quick Start
@@ -41,7 +41,7 @@ pip install -e ".[dev]"
 
 # 3. Configure
 cp .env.example .env
-# Edit .env with your OpenAI API key and DB credentials
+# Edit .env with your NVIDIA NIM API key and DB credentials
 
 # 4. Seed demo data
 python -m scripts.seed
@@ -120,7 +120,7 @@ Combined with **Tit-for-Tat reciprocity**: mirrors buyer concessions at a damped
 - Python 3.11+ / FastAPI
 - MongoDB (Motor async) — durable session history
 - Redis (aioredis) — active session TTL management
-- OpenAI GPT-4o — Hinglish dialogue generation
+- NVIDIA NIM (GLM-4.7 default, configurable) — Hinglish dialogue generation with CoT reasoning
 - Beckn/ONDC protocol stubs (ready for gateway integration)
 
 ### Frontend
@@ -178,3 +178,23 @@ The frontend proxies `/api/v1/*` calls to the backend via Next.js rewrites.
 | **Database auth** | MongoDB + Redis credentials configured via env vars |
 | **Distributed locks** | Redis-based per-session lock prevents concurrent offer processing |
 | **Structured logging** | JSON-formatted logs with `X-Request-ID` tracing |
+
+## LLM Configuration (NVIDIA NIM)
+
+The dialogue engine uses [NVIDIA NIM](https://build.nvidia.com/) — a free-tier, OpenAI-compatible inference API.
+
+| Env Var | Default | Description |
+|---------|---------|-------------|
+| `NIM_API_KEY` | — | Your NVIDIA NIM API key (`nvapi-...`). Get one at [build.nvidia.com](https://build.nvidia.com/) |
+| `NIM_BASE_URL` | `https://integrate.api.nvidia.com/v1` | NIM API endpoint (change for self-hosted NIM) |
+| `NIM_MODEL` | `z-ai/glm4_7` | Model identifier — any NIM-hosted LLM works |
+
+### Chain-of-Thought Reasoning
+
+The dialogue generator uses `<think>` tags for step-by-step reasoning before generating Hinglish responses. CoT reasoning is:
+- **Visible** in `metadata.reasoning` when `ENV=development`
+- **Stripped** from responses when `ENV=production`
+
+### JSON Mode Fallback
+
+The generator tries `response_format={"type": "json_object"}` first. If the model doesn't support it, it automatically falls back to regex-based JSON extraction from plain text.
