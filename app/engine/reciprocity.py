@@ -84,5 +84,6 @@ class ReciprocityTracker:
         Args:
             relative_time: 0.0 (start) → 1.0 (deadline).
         """
+        relative_time = max(0.0, min(1.0, relative_time))
         # Linear interpolation: alpha → 1.0 as t → 1.0
         return self.alpha + (1.0 - self.alpha) * max(0.0, relative_time - 0.5) * 2

@@ -39,7 +39,7 @@ class NegotiationSession(BaseModel):
     agreed_price: float | None = None
 
     # Security
-    bot_score: float = 0.0
+    bot_score: float = Field(default=0.0, ge=0.0, le=1.0)
     buyer_ip: str = ""
     session_token: str = ""
 
