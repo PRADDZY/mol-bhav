@@ -302,6 +302,8 @@ The generator tries `response_format={"type": "json_object"}` first. If the mode
 
 ## Deployment
 
+> 📖 **For comprehensive deployment instructions including Render.com setup, see [DEPLOYMENT.md](DEPLOYMENT.md)**
+
 ### Production Deployment (Docker)
 
 ```bash
