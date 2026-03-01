@@ -123,6 +123,46 @@ Combined with **Tit-for-Tat reciprocity**: mirrors buyer concessions at a damped
 - OpenAI GPT-4o — Hinglish dialogue generation
 - Beckn/ONDC protocol stubs (ready for gateway integration)
 
+### Frontend
+
+- Next.js 16 (App Router) / React 19 / TypeScript
+- shadcn/ui — Sheet, Dialog, Card, Button, Input, Skeleton, Badge, etc.
+- Framer Motion — avatar animations, chat transitions, meter physics
+- Zustand — client-side negotiation state
+- Tailwind CSS v4 — Indian bazaar palette (saffron/gold/deep-blue)
+
+## Frontend Setup
+
+```bash
+cd frontend
+npm install
+npm run dev
+# Open http://localhost:3000
+```
+
+Create `frontend/.env.local`:
+```
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
+
+The frontend proxies `/api/v1/*` calls to the backend via Next.js rewrites.
+
+### Frontend Features
+
+| Feature | Description |
+|---------|-------------|
+| **Product Listing** | Animated card grid with category icons, staggered Framer Motion fade-in |
+| **Product Detail** | Full metadata display, "Negotiate Price" button opens drawer |
+| **NegotiationDrawer** | Bottom Sheet with chat, fairness meter, price input |
+| **ChatThread** | WhatsApp-style bubbles, optimistic sends, typing indicator |
+| **BazaarBotAvatar** | Animated states: idle, thinking, flinch, deal celebration |
+| **FairnessMeter** | 4-zone colored bar with spring-animated pointer |
+| **RationaleChips** | Explainable AI badges showing negotiation tactic |
+| **Digital Flounce** | AlertDialog intercept: "Ruko Bhaiya!" walk-away save-the-deal |
+| **Bohni Mode** | Golden "Pehli Bohni!" badge for morning negotiations |
+| **Savings Soundbox** | Confetti + celebration overlay with ONDC/DPDP badges |
+| **Language Toggle** | English, हिन्दी, தமிழ், తెలుగు, मराठी |
+
 ## Security
 
 | Layer | Protection |

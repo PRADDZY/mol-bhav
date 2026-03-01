@@ -37,6 +37,7 @@ class NegotiationResponse(BaseModel):
     session_token: str = ""
     message: str
     current_price: float
+    anchor_price: float = 0.0
     state: str
     tactic: str
     sentiment: str
@@ -57,6 +58,7 @@ class NegotiationService:
         product_id: str,
         buyer_name: str = "",
         buyer_ip: str = "",
+        language: str = "en",
     ) -> NegotiationResponse:
         """Start a new negotiation session for a product."""
         # Fetch product from DB
@@ -101,6 +103,7 @@ class NegotiationService:
         session_id: str,
         buyer_message: str,
         buyer_price: float,
+        language: str = "en",
     ) -> NegotiationResponse:
         """Process one round of negotiation."""        # Acquire per-session lock to prevent concurrent modifications
         if not await redis.acquire_session_lock(session_id):
@@ -240,6 +243,7 @@ class NegotiationService:
             session_token=session.session_token,
             message=dialogue.message,
             current_price=result.counter_price,
+            anchor_price=session.anchor_price,
             state=result.state.value,
             tactic=dialogue.tactic,
             sentiment=dialogue.sentiment,

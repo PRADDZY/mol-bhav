@@ -32,11 +32,13 @@ async def _check_ip_rate_limit(ip: str) -> None:
 class StartRequest(BaseModel):
     product_id: str
     buyer_name: str = ""
+    language: str = "en"
 
 
 class OfferRequest(BaseModel):
     message: str = ""
     price: float = Field(gt=0)
+    language: str = "en"
 
 
 @router.post("/start")
@@ -54,6 +56,7 @@ async def start_negotiation(
             product_id=body.product_id,
             buyer_name=body.buyer_name,
             buyer_ip=buyer_ip,
+            language=body.language,
         )
         return result.model_dump()
     except ValueError as e:
@@ -83,6 +86,7 @@ async def make_offer(
             session_id=session_id,
             buyer_message=body.message,
             buyer_price=body.price,
+            language=body.language,
         )
         # Set cooldown after successful processing
         await set_cooldown(session_id, settings.min_response_delay_ms)
