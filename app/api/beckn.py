@@ -34,7 +34,10 @@ async def beckn_select(
 
     item = items[0]
     product_id = item.get("id", "")
-    buyer_price = float(item.get("price", {}).get("value", 0))
+    try:
+        buyer_price = float(item.get("price", {}).get("value", 0))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid price value")
 
     # Check if this is a new negotiation or continuation
     session_id = order.get("negotiation", {}).get("session_id")
