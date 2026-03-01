@@ -3,6 +3,7 @@ import json
 import logging
 
 import redis.asyncio as aioredis
+from redis.exceptions import RedisError
 
 from app.config import settings
 
@@ -19,7 +20,7 @@ async def connect_redis(max_retries: int = 3) -> None:
             await _redis.ping()
             logger.info("Redis connected (attempt %d)", attempt)
             return
-        except Exception:
+        except (RedisError, OSError):
             logger.warning("Redis connection attempt %d/%d failed", attempt, max_retries)
             if attempt == max_retries:
                 raise
@@ -57,7 +58,7 @@ async def load_session(session_id: str) -> dict | None:
         if raw is None:
             return None
         return json.loads(raw)
-    except Exception:
+    except (RedisError, json.JSONDecodeError):
         logger.warning("Redis load_session failed for %s, returning None", session_id)
         return None
 
