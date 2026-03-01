@@ -1,6 +1,7 @@
 import type { NegotiationResponse, Product } from "@/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+const DEFAULT_TIMEOUT_MS = 15_000;
 
 async function apiFetch<T>(
   path: string,
@@ -13,6 +14,7 @@ async function apiFetch<T>(
       "Content-Type": "application/json",
       ...options.headers,
     },
+    signal: options.signal ?? AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
   });
 
   if (!res.ok) {
