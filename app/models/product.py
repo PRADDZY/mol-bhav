@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, computed_field
+from pydantic import BaseModel, Field, computed_field, model_validator
 
 
 class Product(BaseModel):
@@ -14,6 +14,14 @@ class Product(BaseModel):
         gt=0, le=1, description="Target margin fraction, e.g. 0.30 for 30%"
     )
     metadata: dict = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check_price_logic(self) -> "Product":
+        if self.cost_price >= self.anchor_price:
+            raise ValueError("cost_price must be less than anchor_price")
+        if self.min_margin > self.target_margin:
+            raise ValueError("min_margin must not exceed target_margin")
+        return self
 
     @computed_field
     @property
