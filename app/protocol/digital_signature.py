@@ -8,7 +8,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+import warnings
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
+
+_STUB_WARNING_EMITTED = False
 
 
 def sign_agreement(session_id: str, agreed_price: float, product_id: str) -> dict:
@@ -16,6 +22,15 @@ def sign_agreement(session_id: str, agreed_price: float, product_id: str) -> dic
 
     In production, replace with proper asymmetric crypto (Ed25519 / RSA).
     """
+    global _STUB_WARNING_EMITTED
+    if not _STUB_WARNING_EMITTED:
+        warnings.warn(
+            "Using stub SHA256 digest as digital signature. "
+            "Replace with Ed25519/RSA before production deployment.",
+            stacklevel=2,
+        )
+        logger.warning("STUB: digital_signature.sign_agreement() uses SHA256 digest, not real crypto")
+        _STUB_WARNING_EMITTED = True
     payload = {
         "session_id": session_id,
         "product_id": product_id,
